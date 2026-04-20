@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { useAppState } from '../context/AppStateContext';
 import { getStoredApiKey } from '../utils/security';
@@ -94,6 +94,16 @@ const TopLink = styled(Link)`
   font-size: 0.85rem;
 `;
 
+const TopButton = styled.button`
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  color: ${props => props.theme.colors.text.primary};
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+`;
+
 const SecurityBadge = styled.span`
   border-radius: 999px;
   padding: 0.3rem 0.65rem;
@@ -118,7 +128,13 @@ const navItems = [
 ];
 
 const AppShell = () => {
-  const { currentProject } = useAppState();
+  const navigate = useNavigate();
+  const {
+    authProfile,
+    backendConnected,
+    currentProject,
+    logout,
+  } = useAppState();
   const [, setAccessTick] = useState(0);
 
   useEffect(() => {
@@ -136,7 +152,14 @@ const AppShell = () => {
     };
   }, []);
 
-  const secureMode = Boolean(getStoredApiKey());
+  const secureMode = Boolean(getStoredApiKey()) && backendConnected;
+  const activeScopes = Array.isArray(authProfile?.scopes) ? authProfile.scopes : [];
+  const userName = authProfile?.user?.name || authProfile?.user?.email || 'Unknown User';
+
+  const handleSignOut = async () => {
+    await logout();
+    navigate('/auth/login', { replace: true });
+  };
 
   return (
     <Shell>
@@ -154,13 +177,16 @@ const AppShell = () => {
       <Main>
         <TopBar>
           <TopMeta>
-            Active project: <strong>{currentProject?.name || 'None selected'}</strong>
+            Signed in as: <strong>{userName}</strong> | Active project: <strong>{currentProject?.name || 'None selected'}</strong>
           </TopMeta>
 
           <TopActions>
             <TopLink to="/">Open Landing</TopLink>
+            <TopButton type="button" onClick={handleSignOut}>Sign Out</TopButton>
             <SecurityBadge secure={secureMode}>
-              {secureMode ? 'Secure Mode Enabled' : 'No API Key'}
+              {secureMode
+                ? `Secure Mode (${activeScopes.join(', ') || 'scoped'})`
+                : 'No Verified API Key'}
             </SecurityBadge>
           </TopActions>
         </TopBar>

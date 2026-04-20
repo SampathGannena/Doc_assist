@@ -8,6 +8,7 @@ import {
 import { Toaster } from 'react-hot-toast';
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
 
+import { useAppState } from './context/AppStateContext';
 import AppShell from './pages/AppShell';
 import AccessManagementPage from './pages/AccessManagementPage';
 import DashboardPage from './pages/DashboardPage';
@@ -15,9 +16,11 @@ import ErrorCenterPage from './pages/ErrorCenterPage';
 import GenerationHistoryPage from './pages/GenerationHistoryPage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ProjectWorkspacePage from './pages/ProjectWorkspacePage';
 import QualityInsightsPage from './pages/QualityInsightsPage';
+import RegisterPage from './pages/RegisterPage';
 import ReviewDiffPage from './pages/ReviewDiffPage';
 import SettingsPage from './pages/SettingsPage';
 import SystemStatusPage from './pages/SystemStatusPage';
@@ -116,6 +119,42 @@ const MainContent = styled.main`
   flex: 1;
 `;
 
+const FullPageCenter = styled.div`
+  min-height: 70vh;
+  display: grid;
+  place-items: center;
+  color: #cbd5e1;
+  font-size: 1rem;
+`;
+
+const RequireAuth = ({ children }) => {
+  const { isAuthenticated, isHydrating } = useAppState();
+
+  if (isHydrating) {
+    return <FullPageCenter>Checking your session...</FullPageCenter>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  return children;
+};
+
+const GuestOnly = ({ children }) => {
+  const { isAuthenticated, isHydrating } = useAppState();
+
+  if (isHydrating) {
+    return <FullPageCenter>Preparing authentication...</FullPageCenter>;
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -126,7 +165,31 @@ function App() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
 
-              <Route path="/app" element={<AppShell />}>
+              <Route
+                path="/auth/login"
+                element={(
+                  <GuestOnly>
+                    <LoginPage />
+                  </GuestOnly>
+                )}
+              />
+              <Route
+                path="/auth/register"
+                element={(
+                  <GuestOnly>
+                    <RegisterPage />
+                  </GuestOnly>
+                )}
+              />
+
+              <Route
+                path="/app"
+                element={(
+                  <RequireAuth>
+                    <AppShell />
+                  </RequireAuth>
+                )}
+              >
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="onboarding" element={<OnboardingPage />} />
                 <Route path="dashboard" element={<DashboardPage />} />
@@ -141,7 +204,7 @@ function App() {
                 <Route path="errors" element={<ErrorCenterPage />} />
               </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/auth/login" replace />} />
             </Routes>
           </MainContent>
           <Toaster

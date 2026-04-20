@@ -48,3 +48,12 @@ finetuned_codet5/
 *.pt
 *.pth
 *.bin
+
+# Backend runtime artifacts
+backend/data/*.db
+backend/data/*.sqlite
+backend/data/*.sqlite3
+
+# Python cache
+__pycache__/
+.pytest_cache/

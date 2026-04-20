@@ -41,6 +41,7 @@ const generateMockDocumentation = (code, language) => {
 export const useDocumentationGenerator = () => {
   const {
     addGenerationRecord,
+    refreshGenerationHistory,
     currentProject,
     logError,
     settings,
@@ -57,6 +58,8 @@ export const useDocumentationGenerator = () => {
   });
 
   const generateDocumentation = useCallback(async (code, language) => {
+    const activeLanguage = language || currentProject?.language || 'python';
+
     // Validate input
     const codeValidation = validateCode(code);
     if (!codeValidation.isValid) {
@@ -69,7 +72,7 @@ export const useDocumentationGenerator = () => {
       return;
     }
 
-    const languageValidation = validateLanguage(language);
+    const languageValidation = validateLanguage(activeLanguage);
     if (!languageValidation.isValid) {
       toast.error(languageValidation.error);
       logError({
@@ -94,7 +97,14 @@ export const useDocumentationGenerator = () => {
 
     try {
       // Call the real API
-      const response = await generateDocumentationAPI(code, languageValidation.language);
+      const response = await generateDocumentationAPI(code, languageValidation.language, {
+        projectId: currentProject?.id || null,
+        options: {
+          style: settings.docStyle,
+          includeExamples: settings.includeExamples,
+          includeComplexity: settings.includeComplexity,
+        },
+      });
       console.log('API response:', response);
 
       if (!response || typeof response !== 'object' || !('success' in response) || !response.success) {
@@ -114,7 +124,7 @@ export const useDocumentationGenerator = () => {
         });
 
         if (settings.autoSaveHistory) {
-          addGenerationRecord({
+          await addGenerationRecord({
             projectId: currentProject?.id || null,
             language: languageValidation.language,
             model: 'Local Fallback',
@@ -123,6 +133,11 @@ export const useDocumentationGenerator = () => {
             fromCache: false,
             inputSnippet: code.slice(0, 140),
             outputSnippet: mockDoc.slice(0, 140),
+            sourceCode: code,
+            documentation: mockDoc,
+            style: settings.docStyle,
+            includeExamples: settings.includeExamples,
+            includeComplexity: settings.includeComplexity,
           });
         }
 
@@ -146,26 +161,18 @@ export const useDocumentationGenerator = () => {
       setResult(documentation);
       setMetadata({
         confidence: apiMetadata.confidence || '95%',
-        processingTime: response.fromCache ? 'cached' : `${processingTime}ms`,
+        processingTime: apiMetadata.processingTimeMs ? `${apiMetadata.processingTimeMs}ms` : `${processingTime}ms`,
         model: apiMetadata.model || 'CodeT5-base',
-        complexity: complexity.toString(),
-        fromCache: response.fromCache || false
+        complexity: String(apiMetadata.complexity ?? complexity),
+        fromCache: Boolean(apiMetadata.fromCache)
       });
 
       if (settings.autoSaveHistory) {
-        addGenerationRecord({
-          projectId: currentProject?.id || null,
-          language: languageValidation.language,
-          model: apiMetadata.model || 'CodeT5-base',
-          confidence: apiMetadata.confidence || '95%',
-          complexity,
-          fromCache: response.fromCache || false,
-          inputSnippet: code.slice(0, 140),
-          outputSnippet: documentation.slice(0, 140),
-        });
+        // Successful backend generation is already persisted server-side.
+        await refreshGenerationHistory({ suppressErrors: true });
       }
 
-      toast.success(response.fromCache ? 'Retrieved from cache!' : SUCCESS_MESSAGES.DOCS_GENERATED);
+      toast.success(apiMetadata.fromCache ? 'Retrieved from cache!' : SUCCESS_MESSAGES.DOCS_GENERATED);
       
     } catch (error) {
       // Handle unexpected errors
@@ -191,7 +198,7 @@ export const useDocumentationGenerator = () => {
         });
 
         if (settings.autoSaveHistory) {
-          addGenerationRecord({
+          await addGenerationRecord({
             projectId: currentProject?.id || null,
             language: languageValidation.language,
             model: 'Emergency Fallback',
@@ -200,6 +207,11 @@ export const useDocumentationGenerator = () => {
             fromCache: false,
             inputSnippet: code.slice(0, 140),
             outputSnippet: mockDoc.slice(0, 140),
+            sourceCode: code,
+            documentation: mockDoc,
+            style: settings.docStyle,
+            includeExamples: settings.includeExamples,
+            includeComplexity: settings.includeComplexity,
           });
         }
         
@@ -216,7 +228,17 @@ export const useDocumentationGenerator = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [addGenerationRecord, currentProject?.id, logError, settings.autoSaveHistory]);
+  }, [
+    addGenerationRecord,
+    currentProject?.id,
+    currentProject?.language,
+    logError,
+    refreshGenerationHistory,
+    settings.autoSaveHistory,
+    settings.docStyle,
+    settings.includeComplexity,
+    settings.includeExamples,
+  ]);
 
   const getExample = useCallback((language) => {
     return CODE_EXAMPLES[language] || CODE_EXAMPLES.python;

@@ -37,9 +37,18 @@ export const LANGUAGE_NAMES = {
 // API Endpoints
 export const ENDPOINTS = {
   GENERATE_DOCS: '/generate-documentation',
+  GENERATE_DOCS_ASYNC: '/generate-documentation-async',
   ANALYZE_CODE: '/analyze-code',
   VALIDATE_SYNTAX: '/validate-syntax',
   HEALTH_CHECK: '/health',
+  AUTH_ME: '/auth/me',
+  AUTH_REGISTER: '/auth/register',
+  AUTH_LOGIN: '/auth/login',
+  AUTH_LOGOUT: '/auth/logout',
+  ACCESS_KEYS: '/access/keys',
+  HISTORY: '/history',
+  PROJECTS: '/projects',
+  PREFERENCES: '/preferences',
 };
 
 // Error messages

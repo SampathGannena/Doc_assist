@@ -10,6 +10,7 @@ import {
   InlineRow,
   Input,
   Label,
+  Metric,
   MutedText,
   PageDescription,
   PageTitle,
@@ -29,21 +30,53 @@ const ProjectWorkspacePage = () => {
     setActiveProject,
     addProject,
     removeProject,
+    authProfile,
+    generationHistory,
+    isHydrating,
+    lastSyncAt,
   } = useAppState();
 
   const [projectName, setProjectName] = useState('');
   const [language, setLanguage] = useState('python');
+  const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [removingProjectId, setRemovingProjectId] = useState(null);
 
   const languageOptions = useMemo(() => Object.entries(LANGUAGE_NAMES), []);
+  const authProgress = authProfile?.progress || {};
+  const activeProject = projects.find((project) => project.id === activeProjectId) || null;
 
-  const handleCreate = () => {
+  const filteredProjects = useMemo(() => {
+    const needle = String(searchTerm || '').trim().toLowerCase();
+    if (!needle) {
+      return projects;
+    }
+
+    return projects.filter((project) => {
+      const nameMatch = String(project.name || '').toLowerCase().includes(needle);
+      const langMatch = String(project.language || '').toLowerCase().includes(needle);
+      return nameMatch || langMatch;
+    });
+  }, [projects, searchTerm]);
+
+  const activeProjectHistoryCount = useMemo(() => {
+    if (!activeProjectId) {
+      return 0;
+    }
+    return generationHistory.filter((item) => item.projectId === activeProjectId).length;
+  }, [activeProjectId, generationHistory]);
+
+  const handleCreate = async () => {
     if (!projectName.trim()) {
       setError('Project name is required.');
       return;
     }
 
-    const created = addProject(projectName, language);
+    setIsSaving(true);
+    const created = await addProject(projectName, language);
+    setIsSaving(false);
+
     if (!created) {
       setError('Unable to create project. Check project name and try again.');
       return;
@@ -53,16 +86,52 @@ const ProjectWorkspacePage = () => {
     setError('');
   };
 
+  const handleRemoveProject = async (projectId) => {
+    setRemovingProjectId(projectId);
+    const removed = await removeProject(projectId);
+    setRemovingProjectId(null);
+
+    if (!removed) {
+      setError('Unable to remove project. Check your permissions and try again.');
+    }
+  };
+
   return (
     <WorkspacePage>
       <PageTop>
         <PageTitle>Project Workspace</PageTitle>
         <PageDescription>
-          Create and manage projects for organized documentation workflows.
+          Create and manage projects per user account with backend-synced progress and secure access control.
         </PageDescription>
+        <MutedText>
+          {isHydrating ? 'Syncing from backend...' : 'Backend sync complete.'}
+          {lastSyncAt ? ` Last synced: ${new Date(lastSyncAt).toLocaleString()}` : ''}
+        </MutedText>
       </PageTop>
 
       <Grid>
+        <Card>
+          <MutedText>My Projects</MutedText>
+          <Metric>{authProgress.projectCount ?? projects.length}</Metric>
+        </Card>
+
+        <Card>
+          <MutedText>My Generated Docs</MutedText>
+          <Metric>{authProgress.generationCount ?? generationHistory.length}</Metric>
+        </Card>
+
+        <Card>
+          <MutedText>Active API Keys</MutedText>
+          <Metric>{authProgress.activeKeyCount ?? '-'}</Metric>
+        </Card>
+
+        <Card>
+          <MutedText>Active Project Activity</MutedText>
+          <Metric>{activeProjectHistoryCount}</Metric>
+        </Card>
+      </Grid>
+
+      <Grid style={{ marginTop: '1rem' }}>
         <Card>
           <h3 style={{ marginTop: 0, color: '#f8fafc' }}>Create New Project</h3>
 
@@ -90,15 +159,22 @@ const ProjectWorkspacePage = () => {
           {error && <MutedText style={{ color: '#f87171', marginTop: '0.7rem' }}>{error}</MutedText>}
 
           <div style={{ marginTop: '0.9rem' }}>
-            <PrimaryButton onClick={handleCreate}>Create Project</PrimaryButton>
+            <PrimaryButton onClick={handleCreate} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Create Project'}
+            </PrimaryButton>
           </div>
         </Card>
 
         <Card>
-          <h3 style={{ marginTop: 0, color: '#f8fafc' }}>Workspace Tips</h3>
+          <h3 style={{ marginTop: 0, color: '#f8fafc' }}>Current User Workspace</h3>
           <MutedText>
-            Keep separate projects for each repository or service. This helps maintain accurate history,
-            language defaults, and cleaner review workflows.
+            User: <strong>{authProfile?.user?.name || authProfile?.user?.email || 'Unknown'}</strong>
+          </MutedText>
+          <MutedText>
+            Active project: <strong>{activeProject?.name || 'None selected'}</strong>
+          </MutedText>
+          <MutedText>
+            Keep separate projects for each repository or service so your history and quality insights stay clear.
           </MutedText>
         </Card>
       </Grid>
@@ -106,7 +182,21 @@ const ProjectWorkspacePage = () => {
       <Card style={{ marginTop: '1rem' }}>
         <h3 style={{ marginTop: 0, color: '#f8fafc' }}>Your Projects</h3>
 
-        {projects.length === 0 ? (
+        <div style={{ marginBottom: '0.8rem' }}>
+          <Label htmlFor="project-search">Search Projects</Label>
+          <Input
+            id="project-search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by project name or language"
+          />
+        </div>
+
+        {isHydrating && (
+          <MutedText>Syncing projects from backend...</MutedText>
+        )}
+
+        {filteredProjects.length === 0 ? (
           <EmptyState>No projects available yet.</EmptyState>
         ) : (
           <TableWrap>
@@ -121,7 +211,7 @@ const ProjectWorkspacePage = () => {
                 </tr>
               </thead>
               <tbody>
-                {projects.map((project) => (
+                {filteredProjects.map((project) => (
                   <tr key={project.id}>
                     <td>{project.name}</td>
                     <td>{project.language}</td>
@@ -139,10 +229,10 @@ const ProjectWorkspacePage = () => {
                           Set Active
                         </Button>
                         <Button
-                          onClick={() => removeProject(project.id)}
-                          disabled={projects.length <= 1}
+                          onClick={() => handleRemoveProject(project.id)}
+                          disabled={projects.length <= 1 || removingProjectId === project.id}
                         >
-                          Remove
+                          {removingProjectId === project.id ? 'Removing...' : 'Remove'}
                         </Button>
                       </InlineRow>
                     </td>

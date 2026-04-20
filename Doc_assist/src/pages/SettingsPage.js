@@ -18,28 +18,60 @@ import {
 } from './PagePrimitives';
 
 const SettingsPage = () => {
-  const { settings, updateSettings, resetSettings } = useAppState();
+  const {
+    settings,
+    updateSettings,
+    resetSettings,
+    backendConnected,
+    isHydrating,
+    refreshSettings,
+    settingsUpdatedAt,
+  } = useAppState();
 
   const [draft, setDraft] = useState(settings);
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     setDraft(settings);
   }, [settings]);
 
-  const handleSave = () => {
-    updateSettings({
+  const handleSave = async () => {
+    setIsSaving(true);
+    const ok = await updateSettings({
       ...draft,
       timeoutMs: Number(draft.timeoutMs),
       retryAttempts: Number(draft.retryAttempts),
     });
-    setSaved(true);
+    setIsSaving(false);
+    setSaved(Boolean(ok));
   };
 
-  const handleReset = () => {
-    resetSettings();
-    setDraft(DEFAULT_SETTINGS);
+  const handleReset = async () => {
+    setIsSaving(true);
+    const ok = await resetSettings();
+    setIsSaving(false);
+
+    if (ok) {
+      setDraft(DEFAULT_SETTINGS);
+      setSaved(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (!backendConnected) {
+      return;
+    }
+
+    setIsRefreshing(true);
+    const ok = await refreshSettings({ suppressErrors: false });
+    setIsRefreshing(false);
     setSaved(false);
+
+    if (!ok) {
+      return;
+    }
   };
 
   return (
@@ -49,6 +81,14 @@ const SettingsPage = () => {
         <PageDescription>
           Configure generation quality, user experience defaults, and secure behavior preferences.
         </PageDescription>
+        <MutedText>
+          Backend sync: <strong>{backendConnected ? 'connected' : 'offline fallback'}</strong>
+          {isHydrating ? ' (syncing...)' : ''}
+        </MutedText>
+        <MutedText>
+          Last backend settings update:{' '}
+          <strong>{settingsUpdatedAt ? new Date(settingsUpdatedAt).toLocaleString() : 'not synced yet'}</strong>
+        </MutedText>
       </PageTop>
 
       <Card>
@@ -130,8 +170,13 @@ const SettingsPage = () => {
         </div>
 
         <InlineRow style={{ marginTop: '1rem' }}>
-          <PrimaryButton onClick={handleSave}>Save Settings</PrimaryButton>
-          <Button onClick={handleReset}>Reset Defaults</Button>
+          <PrimaryButton onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Settings'}
+          </PrimaryButton>
+          <Button onClick={handleReset} disabled={isSaving}>Reset Defaults</Button>
+          <Button onClick={handleRefresh} disabled={!backendConnected || isRefreshing || isSaving}>
+            {isRefreshing ? 'Reloading...' : 'Reload From Backend'}
+          </Button>
         </InlineRow>
 
         {saved && <MutedText style={{ color: '#34d399', marginTop: '0.8rem' }}>Settings updated.</MutedText>}

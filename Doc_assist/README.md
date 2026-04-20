@@ -125,11 +125,30 @@ The frontend now includes full API integration with retry logic, caching, and er
    python backend/server.py
    ```
 
+   To use Groq for richer traversal-focused document generation, set backend env vars:
+   ```bash
+   DOCASSIST_MODEL_PROVIDER=groq
+   GROQ_API_KEY=your_groq_api_key
+   GROQ_MODEL=llama-3.3-70b-versatile
+   GROQ_API_BASE_URL=https://api.groq.com/openai/v1
+   ```
+
 3. **The frontend will automatically**:
    - Connect to your AI backend API
    - Cache responses for better performance
    - Retry failed requests with exponential backoff
    - Fall back to local mode if API is unavailable
+
+### Production Access Workflow
+
+DOCAssist uses API-key based authentication with scoped authorization.
+
+- Bootstrap one admin token through environment variables
+- Use `/api/access/keys` to generate scoped keys for teams
+- Assign least-privilege scopes per role (Auditor, Developer, Manager, Admin)
+- Rotate and revoke keys regularly
+
+See `PRODUCTION_ACCESS_FLOW.md` for complete production setup and API call examples.
 
 ### Utilities Included
 
@@ -141,6 +160,13 @@ The `src/utils/` folder now contains:
 - **constants.js** - App-wide constants and configuration
 
 See `src/utils/README.md` for detailed documentation.
+
+## 📚 Further Reading
+
+- `QUICK_START.md`
+- `PRODUCTION_ACCESS_FLOW.md`
+- `BACKEND_API_GUIDE.md`
+- `IMPLEMENTATION_SUMMARY.md`
 
 ## 📝 License
 

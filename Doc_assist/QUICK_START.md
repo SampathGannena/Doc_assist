@@ -98,6 +98,21 @@ Test the following features:
 - View processing time
 - See complexity analysis
 
+### Step 7: Configure Production Access Flow
+
+For production deployments, use scoped API keys instead of sharing one token.
+
+1. Bootstrap one admin token via environment variables.
+2. Open Access Management (`/app/access`) with the admin token.
+3. Create scoped keys for each role:
+    - Auditor: `read`
+    - Developer: `read, generate`
+    - Manager: `read, generate, manage`
+4. Distribute keys via your secret manager (not chat/email/plain docs).
+5. Rotate and revoke keys on a schedule.
+
+Full runbook with API examples: `PRODUCTION_ACCESS_FLOW.md`
+
 ## 🎯 What You Have Now
 
 ### Frontend Features
@@ -212,6 +227,7 @@ export const API_CONFIG = {
 
 - **Full utilities documentation**: `src/utils/README.md`
 - **Backend setup guide**: `BACKEND_API_GUIDE.md`
+- **Production access flow**: `PRODUCTION_ACCESS_FLOW.md`
 - **Implementation details**: `IMPLEMENTATION_SUMMARY.md`
 - **Main README**: `README.md`
 

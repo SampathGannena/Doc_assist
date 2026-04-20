@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { useAppState } from '../context/AppStateContext';
 import { generateDocumentation } from '../utils/api';
@@ -59,12 +59,13 @@ const ReviewDiffPage = () => {
   const {
     settings,
     addGenerationRecord,
+    refreshGenerationHistory,
     logError,
     currentProject,
   } = useAppState();
 
-  const [language, setLanguage] = useState('python');
-  const [code, setCode] = useState(CODE_EXAMPLES.python || '');
+  const [language, setLanguage] = useState(currentProject?.language || 'python');
+  const [code, setCode] = useState(CODE_EXAMPLES[currentProject?.language || 'python'] || '');
   const [generated, setGenerated] = useState('');
   const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -72,6 +73,16 @@ const ReviewDiffPage = () => {
   const [saved, setSaved] = useState(false);
 
   const diffRows = useMemo(() => computeDiffRows(code, generated), [code, generated]);
+
+  useEffect(() => {
+    const defaultLanguage = currentProject?.language || 'python';
+    setLanguage(defaultLanguage);
+    setCode(CODE_EXAMPLES[defaultLanguage] || '');
+    setGenerated('');
+    setMetadata(null);
+    setError('');
+    setSaved(false);
+  }, [currentProject?.id, currentProject?.language]);
 
   const handleLoadSample = () => {
     setCode(CODE_EXAMPLES[language] || '');
@@ -95,6 +106,7 @@ const ReviewDiffPage = () => {
 
     try {
       const response = await generateDocumentation(code, language, {
+        projectId: currentProject?.id || null,
         options: {
           style: settings.docStyle,
           includeExamples: settings.includeExamples,
@@ -117,25 +129,19 @@ const ReviewDiffPage = () => {
       const nextMetadata = {
         model: payload?.metadata?.model || 'CodeT5-base',
         confidence: payload?.metadata?.confidence || 'N/A',
-        processingTime: response.fromCache ? 'cached' : `${Date.now() - startedAt}ms`,
-        complexity,
-        fromCache: Boolean(response.fromCache),
+        processingTime: payload?.metadata?.processingTimeMs
+          ? `${payload.metadata.processingTimeMs}ms`
+          : `${Date.now() - startedAt}ms`,
+        complexity: payload?.metadata?.complexity ?? complexity,
+        fromCache: Boolean(payload?.metadata?.fromCache),
       };
 
       setGenerated(documentation);
       setMetadata(nextMetadata);
 
       if (settings.autoSaveHistory) {
-        addGenerationRecord({
-          projectId: currentProject?.id || null,
-          language,
-          model: nextMetadata.model,
-          confidence: nextMetadata.confidence,
-          complexity: nextMetadata.complexity,
-          fromCache: nextMetadata.fromCache,
-          inputSnippet: code.slice(0, 140),
-          outputSnippet: documentation.slice(0, 140),
-        });
+        // Generation requests are persisted server-side; refresh to load canonical history.
+        await refreshGenerationHistory({ suppressErrors: true });
       }
     } catch (requestError) {
       setError(requestError.message || 'Failed to generate documentation.');
@@ -149,12 +155,12 @@ const ReviewDiffPage = () => {
     }
   };
 
-  const handleSaveSnapshot = () => {
+  const handleSaveSnapshot = async () => {
     if (!generated) {
       return;
     }
 
-    addGenerationRecord({
+    await addGenerationRecord({
       projectId: currentProject?.id || null,
       language,
       model: metadata?.model || 'CodeT5-base',
@@ -163,6 +169,11 @@ const ReviewDiffPage = () => {
       fromCache: Boolean(metadata?.fromCache),
       inputSnippet: code.slice(0, 140),
       outputSnippet: generated.slice(0, 140),
+      sourceCode: code,
+      documentation: generated,
+      style: settings.docStyle,
+      includeExamples: settings.includeExamples,
+      includeComplexity: settings.includeComplexity,
     });
 
     setSaved(true);
@@ -175,6 +186,10 @@ const ReviewDiffPage = () => {
         <PageDescription>
           Generate documentation drafts, inspect changes line-by-line, and save approved snapshots.
         </PageDescription>
+        <MutedText>
+          Active project: <strong>{currentProject?.name || 'None selected'}</strong>
+          {' '}| Default language: <strong>{currentProject?.language || 'python'}</strong>
+        </MutedText>
       </PageTop>
 
       <Card>
@@ -194,6 +209,9 @@ const ReviewDiffPage = () => {
 
           <div style={{ display: 'flex', alignItems: 'end', gap: '0.5rem' }}>
             <Button onClick={handleLoadSample}>Load Sample</Button>
+            <Button onClick={() => setLanguage(currentProject?.language || 'python')}>
+              Use Project Default
+            </Button>
             <PrimaryButton onClick={handleGenerate} disabled={loading}>
               {loading ? 'Generating...' : 'Generate Draft'}
             </PrimaryButton>

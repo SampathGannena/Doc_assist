@@ -280,7 +280,7 @@ const Header = () => {
             </NavLink>
             <NavLink
               as={Link}
-              to="/app/dashboard"
+              to="/auth/login"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
