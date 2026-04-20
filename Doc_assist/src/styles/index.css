@@ -1,0 +1,136 @@
+/* CSS Reset and Base Styles for React App */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* Remove default button styles */
+button {
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+/* Remove default anchor styles */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Remove default list styles */
+ul, ol {
+  list-style: none;
+}
+
+/* Remove default input styles */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+/* Remove default fieldset styles */
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Remove default table styles */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Remove default form styles */
+form {
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default hr styles */
+hr {
+  border: none;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Accessibility improvements */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Smooth transitions for interactive elements */
+button, a, input, textarea, select {
+  transition: all 0.2s ease;
+}
+
+/* Prevent text selection on interactive elements */
+button, .no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+/* Selection styles */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #f8fafc;
+}
+
+::-moz-selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #f8fafc;
+}
+
+/* Prevent horizontal scroll */
+html, body {
+  overflow-x: hidden;
+}

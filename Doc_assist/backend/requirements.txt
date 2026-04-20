@@ -1,0 +1,8 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+torch
+transformers>=4.40.0
+sentencepiece>=0.1.99
+pandas>=2.0.0
+datasets>=2.18.0
+accelerate>=0.28.0
