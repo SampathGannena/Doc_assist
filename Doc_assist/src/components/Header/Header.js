@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 const HeaderContainer = styled.header`
   background: rgba(15, 15, 35, 0.95);
@@ -276,6 +277,14 @@ const Header = () => {
               whileTap={{ scale: 0.95 }}
             >
               VS Code Extension
+            </NavLink>
+            <NavLink
+              as={Link}
+              to="/app/dashboard"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Open Workspace
             </NavLink>
           </NavLinks>
         </NavContainer>

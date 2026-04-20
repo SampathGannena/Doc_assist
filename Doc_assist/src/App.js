@@ -1,14 +1,26 @@
 import React from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
 
-import Header from './components/Header/Header';
-import Demo from './components/Demo/Demo';
-import Features from './components/Features/Features';
-import VSCodeSectionComponent from './components/VSCode/VSCodeSection';
-import Examples from './components/Examples/Examples';
-import Footer from './components/Footer/Footer';
+import AppShell from './pages/AppShell';
+import AccessManagementPage from './pages/AccessManagementPage';
+import DashboardPage from './pages/DashboardPage';
+import ErrorCenterPage from './pages/ErrorCenterPage';
+import GenerationHistoryPage from './pages/GenerationHistoryPage';
+import IntegrationsPage from './pages/IntegrationsPage';
+import LandingPage from './pages/LandingPage';
+import OnboardingPage from './pages/OnboardingPage';
+import ProjectWorkspacePage from './pages/ProjectWorkspacePage';
+import QualityInsightsPage from './pages/QualityInsightsPage';
+import ReviewDiffPage from './pages/ReviewDiffPage';
+import SettingsPage from './pages/SettingsPage';
+import SystemStatusPage from './pages/SystemStatusPage';
 
 const theme = {
   colors: {
@@ -110,14 +122,28 @@ function App() {
       <GlobalStyle />
       <Router>
         <AppContainer>
-          <Header />
           <MainContent>
-            <Demo />
-            <Features />
-            <VSCodeSectionComponent />
-            <Examples />
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+
+              <Route path="/app" element={<AppShell />}>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="onboarding" element={<OnboardingPage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="workspace" element={<ProjectWorkspacePage />} />
+                <Route path="history" element={<GenerationHistoryPage />} />
+                <Route path="review" element={<ReviewDiffPage />} />
+                <Route path="insights" element={<QualityInsightsPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="integrations" element={<IntegrationsPage />} />
+                <Route path="access" element={<AccessManagementPage />} />
+                <Route path="status" element={<SystemStatusPage />} />
+                <Route path="errors" element={<ErrorCenterPage />} />
+              </Route>
+
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </MainContent>
-          <Footer />
           <Toaster
             position="top-right"
             toastOptions={{

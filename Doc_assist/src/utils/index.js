@@ -3,6 +3,7 @@ export * from './api';
 export * from './codeParser';
 export * from './constants';
 export * from './helpers';
+export * from './security';
 export * from './validators';
 
 // Default exports

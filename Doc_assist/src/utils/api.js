@@ -1,5 +1,19 @@
 import { API_CONFIG, ENDPOINTS, ERROR_MESSAGES, HTTP_STATUS } from './constants';
 import { retryWithBackoff, getCachedData, setCachedData } from './helpers';
+import { getStoredApiKey } from './security';
+
+const emitRuntimeError = (detail) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent('docassist:error', {
+    detail: {
+      ...detail,
+      createdAt: new Date().toISOString(),
+    },
+  }));
+};
 
 /**
  * API client for documentation generation service
@@ -19,6 +33,7 @@ class ApiClient {
   async request(endpoint, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const apiKey = getStoredApiKey();
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -26,6 +41,7 @@ class ApiClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
           ...(options.headers || {}),
         },
         signal: controller.signal,
@@ -34,14 +50,14 @@ class ApiClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        return this.handleErrorResponse(response);
+        return this.handleErrorResponse(response, endpoint);
       }
 
       const data = await response.json();
       return { success: true, data };
     } catch (error) {
       clearTimeout(timeoutId);
-      return this.handleRequestError(error);
+      return this.handleRequestError(error, endpoint);
     }
   }
 
@@ -50,7 +66,7 @@ class ApiClient {
    * @param {Response} response - The fetch response object
    * @returns {Promise<Object>} Error response object
    */
-  async handleErrorResponse(response) {
+  async handleErrorResponse(response, endpoint) {
     let errorMessage;
 
     switch (response.status) {
@@ -78,11 +94,22 @@ class ApiClient {
       // Use default error message if JSON parsing fails
     }
 
-    return {
+    const errorPayload = {
       success: false,
       error: errorMessage,
       status: response.status,
+      endpoint,
     };
+
+    emitRuntimeError({
+      source: 'api-client',
+      endpoint,
+      status: response.status,
+      message: errorMessage,
+      severity: response.status >= 500 ? 'error' : 'warning',
+    });
+
+    return errorPayload;
   }
 
   /**
@@ -90,7 +117,7 @@ class ApiClient {
    * @param {Error} error - The error object
    * @returns {Object} Error response object
    */
-  handleRequestError(error) {
+  handleRequestError(error, endpoint) {
     let errorMessage;
 
     if (error.name === 'AbortError') {
@@ -101,10 +128,20 @@ class ApiClient {
       errorMessage = error.message || ERROR_MESSAGES.SERVER_ERROR;
     }
 
-    return {
+    const errorPayload = {
       success: false,
       error: errorMessage,
+      endpoint,
     };
+
+    emitRuntimeError({
+      source: 'api-client',
+      endpoint,
+      message: errorMessage,
+      severity: 'error',
+    });
+
+    return errorPayload;
   }
 
   /**

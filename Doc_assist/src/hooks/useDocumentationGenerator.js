@@ -8,6 +8,7 @@ import {
   extractParameters,
   calculateComplexity 
 } from '../utils/codeParser';
+import { useAppState } from '../context/AppStateContext';
 
 // Fallback mock documentation generator (used when API is unavailable)
 const generateMockDocumentation = (code, language) => {
@@ -38,6 +39,13 @@ const generateMockDocumentation = (code, language) => {
 };
 
 export const useDocumentationGenerator = () => {
+  const {
+    addGenerationRecord,
+    currentProject,
+    logError,
+    settings,
+  } = useAppState();
+
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState('');
   const [metadata, setMetadata] = useState({
@@ -53,16 +61,27 @@ export const useDocumentationGenerator = () => {
     const codeValidation = validateCode(code);
     if (!codeValidation.isValid) {
       toast.error(codeValidation.error);
+      logError({
+        source: 'documentation-generator',
+        message: codeValidation.error,
+        severity: 'warning',
+      });
       return;
     }
 
     const languageValidation = validateLanguage(language);
     if (!languageValidation.isValid) {
       toast.error(languageValidation.error);
+      logError({
+        source: 'documentation-generator',
+        message: languageValidation.error,
+        severity: 'warning',
+      });
       return;
     }
 
     const startTime = Date.now();
+    const complexity = calculateComplexity(code);
     setIsLoading(true);
     setResult('Analyzing your code and generating documentation...');
     setMetadata(prev => ({ 
@@ -74,9 +93,6 @@ export const useDocumentationGenerator = () => {
     }));
 
     try {
-      // Calculate code complexity
-      const complexity = calculateComplexity(code);
-
       // Call the real API
       const response = await generateDocumentationAPI(code, languageValidation.language);
       console.log('API response:', response);
@@ -95,6 +111,25 @@ export const useDocumentationGenerator = () => {
           model: 'Local Fallback',
           complexity: complexity.toString(),
           fromCache: false
+        });
+
+        if (settings.autoSaveHistory) {
+          addGenerationRecord({
+            projectId: currentProject?.id || null,
+            language: languageValidation.language,
+            model: 'Local Fallback',
+            confidence: '85%',
+            complexity,
+            fromCache: false,
+            inputSnippet: code.slice(0, 140),
+            outputSnippet: mockDoc.slice(0, 140),
+          });
+        }
+
+        logError({
+          source: 'documentation-generator',
+          message: response.error || 'API unavailable. Fallback mode used.',
+          severity: 'warning',
         });
 
         toast.error('API unavailable. Using offline mode.');
@@ -117,11 +152,29 @@ export const useDocumentationGenerator = () => {
         fromCache: response.fromCache || false
       });
 
+      if (settings.autoSaveHistory) {
+        addGenerationRecord({
+          projectId: currentProject?.id || null,
+          language: languageValidation.language,
+          model: apiMetadata.model || 'CodeT5-base',
+          confidence: apiMetadata.confidence || '95%',
+          complexity,
+          fromCache: response.fromCache || false,
+          inputSnippet: code.slice(0, 140),
+          outputSnippet: documentation.slice(0, 140),
+        });
+      }
+
       toast.success(response.fromCache ? 'Retrieved from cache!' : SUCCESS_MESSAGES.DOCS_GENERATED);
       
     } catch (error) {
       // Handle unexpected errors
       console.error('Documentation generation error:', error);
+      logError({
+        source: 'documentation-generator',
+        message: error.message || 'Documentation generation failed unexpectedly.',
+        severity: 'error',
+      });
       
       // Try fallback
       try {
@@ -133,19 +186,37 @@ export const useDocumentationGenerator = () => {
           confidence: '80%',
           processingTime: `${processingTime}ms`,
           model: 'Emergency Fallback',
-          complexity: calculateComplexity(code).toString(),
+          complexity: complexity.toString(),
           fromCache: false
         });
+
+        if (settings.autoSaveHistory) {
+          addGenerationRecord({
+            projectId: currentProject?.id || null,
+            language: languageValidation.language,
+            model: 'Emergency Fallback',
+            confidence: '80%',
+            complexity,
+            fromCache: false,
+            inputSnippet: code.slice(0, 140),
+            outputSnippet: mockDoc.slice(0, 140),
+          });
+        }
         
         toast.error('API unavailable. Using basic documentation generator.');
       } catch (fallbackError) {
         setResult('Failed to generate documentation. Please try again.');
+        logError({
+          source: 'documentation-generator',
+          message: fallbackError.message || 'Fallback generation failed.',
+          severity: 'error',
+        });
         toast.error(ERROR_MESSAGES.SERVER_ERROR);
       }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [addGenerationRecord, currentProject?.id, logError, settings.autoSaveHistory]);
 
   const getExample = useCallback((language) => {
     return CODE_EXAMPLES[language] || CODE_EXAMPLES.python;
